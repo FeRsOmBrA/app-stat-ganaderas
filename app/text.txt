@@ -1,0 +1,1186 @@
+
+==================== C:/Users/ferne/Work/projecto-ganaderia/app-stat-ganaderas/app\firebase.js ====================
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getDatabase } from 'firebase/database';
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+    apiKey: "AIzaSyDO8RKm4oZ_XsCUv8r74vpeCERMRriBQjI",
+    authDomain: "app-estadisticas-ganaderas.firebaseapp.com",
+    databaseURL: "https://app-estadisticas-ganaderas-default-rtdb.firebaseio.com",
+    projectId: "app-estadisticas-ganaderas",
+    storageBucket: "app-estadisticas-ganaderas.firebasestorage.app",
+    messagingSenderId: "501466076729",
+    appId: "1:501466076729:web:e11a86fa294f5cef37dfe8",
+    measurementId: "G-26WKLBRJT7"
+};
+
+
+const app = initializeApp(firebaseConfig);
+export const database = getDatabase(app);
+
+
+
+==================== C:/Users/ferne/Work/projecto-ganaderia/app-stat-ganaderas/app\index.tsx ====================
+import React, { useState } from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createStackNavigator } from "@react-navigation/stack";
+import LoginScreen from "./components/LoginScreen";
+import OwnerDashboard from "./components/OwnerDashboard";
+import EmployeeInterface from "./components/EmployeeInterface";
+import AnimalList from "./components/AnimalList";
+import AnimalDetails from "./components/AnimalDetails";
+import AddAnimal from "./components/AddAnimal";
+type RootStackParamList = {
+  Login: undefined;
+  OwnerDashboard: undefined;
+  EmployeeInterface: undefined;
+  AnimalList: undefined;
+  AnimalDetails: { animal: Animal };
+  AddAnimal: undefined;
+};
+
+const Stack = createStackNavigator<RootStackParamList>();
+
+interface User {
+  username: string;
+  isOwner: boolean;
+}
+
+export interface Animal {
+  numero: string;
+  tipo: string;
+  fechaNacimiento: string;
+  sexo: string;
+  raza: string;
+  fechaVacunacion: string;
+  edad: number;
+  finca: string;
+}
+
+const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+
+  const handleLogin = (username: string , password : string) => {
+    // In a real app, we would check the user role here
+
+    const isOwner = username.toLowerCase() === "jvega" && password === "1234";
+
+    setUser({ username, isOwner });
+  };
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {!user ? (
+        <Stack.Screen name="Login">
+          {(props) => <LoginScreen {...props} onLogin={handleLogin} />}
+        </Stack.Screen>
+      ) : user.isOwner ? (
+        <>
+          <Stack.Screen name="OwnerDashboard" component={OwnerDashboard} />
+          <Stack.Screen name="AnimalList" component={AnimalList} />
+          <Stack.Screen name="AnimalDetails" component={AnimalDetails} />
+          <Stack.Screen name="AddAnimal" component={AddAnimal} />
+        </>
+      ) : (
+        <>
+          <Stack.Screen
+            name="EmployeeInterface"
+            component={EmployeeInterface}
+          />
+          <Stack.Screen name="AnimalList" component={AnimalList} />
+          <Stack.Screen name="AnimalDetails" component={AnimalDetails} />
+        </>
+      )}
+    </Stack.Navigator>
+  );
+};
+
+export default App;
+
+
+==================== C:/Users/ferne/Work/projecto-ganaderia/app-stat-ganaderas/app\types.ts ====================
+
+export  interface Animal {
+  numero: string;
+  tipo: string;
+  fechaNacimiento: string;
+  sexo: string;
+  raza: string;
+  fechaVacunacion: string;
+  edad: number;
+  finca: string; 
+  peso?: string;
+}
+
+
+
+
+
+
+==================== C:/Users/ferne/Work/projecto-ganaderia/app-stat-ganaderas/app\components\AddAnimal.tsx ====================
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
+import { Picker } from "@react-native-picker/picker";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { ref, set, get, update } from "firebase/database";
+import { database } from "../firebase";
+
+type RootStackParamList = {
+  AddAnimal: undefined;
+  AnimalList: undefined;
+};
+
+type AddAnimalNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "AddAnimal"
+>;
+
+interface AddAnimalProps {
+  navigation: AddAnimalNavigationProp;
+}
+
+const AddAnimal: React.FC<AddAnimalProps> = ({ navigation }) => {
+  const [animalData, setAnimalData] = useState({
+    numero: "",
+    tipo: "Toro",
+    fechaNacimiento: new Date(),
+    sexo: "Macho",
+    raza: "Braham",
+    peso: "",
+    finca: "Villa Mary",
+    fechaVacunacion: new Date() as Date | null,
+    fechaCompra: new Date(),
+    ultimoEvento: "",
+    edad: 0,
+  });
+
+  const [currentPicker, setCurrentPicker] = useState<string | null>(null);
+  const handleDateConfirm = (date: Date) => {
+    if (currentPicker && animalData.hasOwnProperty(currentPicker)) {
+      setAnimalData((prev) => ({
+        ...prev,
+        [currentPicker]: date,
+      }));
+    }
+    setCurrentPicker(null);
+  };
+
+  const handleSubmit = async () => {
+    if (
+      !animalData.numero ||
+      !animalData.tipo ||
+      !animalData.raza ||
+      !animalData.finca
+    ) {
+      Alert.alert("Error", "Por favor completa los campos obligatorios.");
+      return;
+    }
+
+    try {
+      const animalRef = ref(database, `animales/${animalData.numero}`);
+      const snapshot = await get(animalRef);
+
+      if (snapshot.exists()) {
+        Alert.alert("Error", "Ya existe un animal con este número.");
+        return;
+      }
+
+      await set(animalRef, {
+        ...animalData,
+        fechaNacimiento: animalData.fechaNacimiento.toDateString(),
+        fechaVacunacion: animalData.fechaVacunacion
+          ? animalData.fechaVacunacion.toDateString()
+          : null,
+        fechaCompra: animalData.fechaCompra.toDateString(),
+      });
+
+      // calcular edad
+      const today = new Date();
+      const birthDate = new Date(animalData.fechaNacimiento);
+      const age = today.getFullYear() - birthDate.getFullYear();
+      setAnimalData((prev) => ({ ...prev, edad: age }));
+
+      const statsRef = ref(database, "stats/totalAnimals");
+      const statsSnapshot = await get(statsRef);
+      const currentTotal = statsSnapshot.exists() ? statsSnapshot.val() : 0;
+
+      await update(ref(database, "stats"), {
+        totalAnimals: currentTotal + 1,
+      });
+
+      // verificar si se debe aumentar el contador de pendingVaccines, solamente si la fecha de vacunación no es nula y es mayor a la fecha actual
+      if (
+        animalData.fechaVacunacion &&
+        animalData.fechaVacunacion > new Date()
+      ) {
+        const pendingVaccinesRef = ref(database, "stats/pendingVaccines");
+        const pendingVaccinesSnapshot = await get(pendingVaccinesRef);
+        const currentPending = pendingVaccinesSnapshot.exists()
+          ? pendingVaccinesSnapshot.val()
+          : 0;
+
+        await update(ref(database, "stats"), {
+          pendingVaccines: currentPending + 1,
+        });
+      }
+
+      Alert.alert("Éxito", "Animal agregado exitosamente.");
+      navigation.goBack();
+    } catch (error) {
+      console.error("Error al agregar el animal:", error);
+      Alert.alert(
+        "Error",
+        "Hubo un problema al agregar el animal. Inténtalo nuevamente."
+      );
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.title}>Agregar Nuevo Animal</Text>
+
+        {/* Número */}
+        <Text style={styles.label}>Numero del Animal*</Text>
+        <View style={{ padding: 50 }}>
+          <TextInput
+            style={[styles.input, { marginBottom: 15 }]}
+            placeholder="Ingresa aquí el número"
+            value={animalData.numero}
+            onChangeText={(text) =>
+              setAnimalData({ ...animalData, numero: text })
+            }
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* Tipo */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Tipo *</Text>
+          <Picker
+            selectedValue={animalData.tipo}
+            onValueChange={(value) =>
+              setAnimalData({ ...animalData, tipo: value })
+            }
+          >
+            <Picker.Item label="Toro" value="Toro" />
+            <Picker.Item label="Vaca" value="Vaca" />
+            <Picker.Item label="Novilla" value="Novilla" />
+            <Picker.Item label="Ternero" value="Ternero" />
+            <Picker.Item label="Ternera" value="Ternera" />
+          </Picker>
+        </View>
+
+        {/* Sexo */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Sexo *</Text>
+          <Picker
+            selectedValue={animalData.sexo}
+            onValueChange={(value) =>
+              setAnimalData({ ...animalData, sexo: value })
+            }
+          >
+            <Picker.Item label="Macho" value="Macho" />
+            <Picker.Item label="Hembra" value="Hembra" />
+          </Picker>
+        </View>
+
+        {/* Raza */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Raza *</Text>
+          <Picker
+            selectedValue={animalData.raza}
+            onValueChange={(value) =>
+              setAnimalData({ ...animalData, raza: value })
+            }
+          >
+            <Picker.Item label="Braham" value="Braham" />
+            <Picker.Item label="Cebú" value="Cebú" />
+            <Picker.Item label="Pardo" value="Pardo" />
+            <Picker.Item label="Simmental" value="Simmental" />
+            <Picker.Item label="Pardo(negra)" value="Pardo(negra)" />
+            <Picker.Item label="Braham(roja)" value="Braham(roja)" />
+            <Picker.Item label="Cebú (blanco)" value="Cebú (blanco)" />
+            <Picker.Item
+              label="Pardas/Cebu/Simental"
+              value="Pardas/Cebu/Simental"
+            />
+          </Picker>
+        </View>
+        {/* Peso */}
+        <View style={{ marginBottom: 15 }}>
+          <Text style={styles.label}>Peso (Kg) </Text>
+        </View>
+
+        <View style={{ padding: 50 }}>
+          <TextInput
+            style={styles.input}
+            placeholder="Ingresa aquí el peso"
+            value={animalData.peso}
+            onChangeText={(text) =>
+              setAnimalData({ ...animalData, peso: text })
+            }
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* Finca */}
+        <View style={[styles.inputContainer, { marginTop: 15 }]}>
+          <Text style={styles.label}>Finca *</Text>
+          <Picker
+            selectedValue={animalData.finca}
+            onValueChange={(value) =>
+              setAnimalData({ ...animalData, finca: value })
+            }
+          >
+            <Picker.Item label="Villa Mary" value="Villa Mary" />
+            <Picker.Item label="Galilea" value="Galilea" />
+            <Picker.Item label="Jerusalen" value="Jerusalen" />
+          </Picker>
+        </View>
+
+        {/* Fecha de Nacimiento */}
+        <Text style={styles.label}>Fecha de Nacimiento *</Text>
+        <View
+          style={[
+            styles.inputContainer,
+            { flexDirection: "row", justifyContent: "space-between" },
+          ]}
+        >
+          <View style={{ flex: 0.6 }}>
+            <TextInput
+              style={styles.input}
+              value={
+                animalData.fechaNacimiento
+                  ? animalData.fechaNacimiento.toLocaleDateString()
+                  : ""
+              }
+              editable={false}
+            />
+          </View>
+
+          <View
+            style={{
+              flex: 0.4,
+              justifyContent: "center",
+              alignContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => setCurrentPicker("fechaNacimiento")}
+            >
+              <Text
+                style={{
+                  color: "#007AFF",
+                }}
+              >
+                Seleccionar Fecha
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {/* Fecha de Vacunación */}
+        <Text style={styles.label}>Fecha de Vacunación *</Text>
+        <View
+          style={[
+            styles.inputContainer,
+            { flexDirection: "row", justifyContent: "space-between" },
+          ]}
+        >
+          <View style={{ flex: 0.6 }}>
+            <TextInput
+              style={styles.input}
+              value={
+                animalData.fechaVacunacion
+                  ? animalData.fechaVacunacion.toLocaleDateString()
+                  : ""
+              }
+              editable={false}
+            />
+          </View>
+
+          <View
+            style={{
+              flex: 0.4,
+              justifyContent: "center",
+              alignContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => setCurrentPicker("fechaVacunacion")}
+            >
+              <Text
+                style={{
+                  color: "#007AFF",
+                }}
+              >
+                Seleccionar Fecha
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Fecha de Vacunación No Aplica */}
+        <View style={styles.inputContainer}>
+          <TouchableOpacity
+            onPress={() =>
+              setAnimalData((prev) => ({
+                ...prev,
+                fechaVacunacion: null,
+              }))
+            }
+          >
+            <Text style={{ color: "#FF3B30" }}>
+              Fecha de Vacunación No Aplica
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Último Evento */}
+        <TextInput
+          style={styles.input}
+          placeholder="Último Evento"
+          value={animalData.ultimoEvento}
+          onChangeText={(text) =>
+            setAnimalData({ ...animalData, ultimoEvento: text })
+          }
+        />
+
+        {/* Botón de Enviar */}
+        <TouchableOpacity style={styles.button} onPress={handleSubmit}>
+          <Text style={styles.buttonText}>Agregar Animal</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Modal para Fechas */}
+      <DateTimePickerModal
+        isVisible={!!currentPicker}
+        mode="date"
+        onConfirm={handleDateConfirm}
+        onCancel={() => setCurrentPicker(null)}
+        date={
+          currentPicker === "fechaNacimiento"
+            ? animalData.fechaNacimiento
+            : currentPicker === "fechaVacunacion"
+            ? animalData.fechaVacunacion ?? new Date()
+            : currentPicker === "fechaCompra"
+            ? animalData.fechaCompra
+            : new Date()
+        }
+      />
+    </KeyboardAvoidingView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f9f9f9",
+  },
+  scrollContent: {
+    padding: 20,
+  },
+  title: {
+    fontSize: 30,
+    marginBottom: 40,
+    textAlign: "center",
+    fontWeight: "bold",
+    color: "#333",
+  },
+  inputContainer: {
+    marginBottom: 15,
+  },
+  label: {
+    fontSize: 25,
+    marginBottom: 20,
+    color: "#555",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 10,
+    fontSize: 16,
+    borderRadius: 6,
+    backgroundColor: "#fff",
+  },
+  button: {
+    backgroundColor: "#007AFF",
+    padding: 15,
+    borderRadius: 5,
+    marginTop: 20,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+});
+
+export default AddAnimal;
+
+
+==================== C:/Users/ferne/Work/projecto-ganaderia/app-stat-ganaderas/app\components\AnimalCard.tsx ====================
+import React from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { Animal } from "../types";
+
+interface AnimalCardProps {
+  animal: Animal;
+  onPress: (animal: Animal) => void;
+}
+
+const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onPress }) => {
+  return (
+    <TouchableOpacity style={styles.card} onPress={() => onPress(animal)}>
+      <Text style={styles.id}>Número: {animal.numero}</Text>
+      <Text style={styles.info}>Tipo: {animal.tipo}</Text>
+      <Text style={styles.info}>Raza: {animal.raza}</Text>
+      <Text style={styles.info}>Sexo: {animal.sexo}</Text>
+      <Text style={styles.info}>Edad: {animal.edad} años</Text>
+      <Text style={styles.info}>Finca: {animal.finca}</Text>
+      <Text style={styles.info}>Peso: {animal.peso || "N/A"}</Text>
+      <Text style={styles.info}>
+        Último Evento: {animal.ultimoEvento || "N/A"}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: "#f0f0f0",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  id: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+  info: {
+    fontSize: 14,
+    color: "#333",
+  },
+});
+
+export default AnimalCard;
+
+
+==================== C:/Users/ferne/Work/projecto-ganaderia/app-stat-ganaderas/app\components\AnimalDetails.tsx ====================
+import React from "react";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { RouteProp } from "@react-navigation/native";
+
+interface Animal {
+  edad: number;
+  fechaCompra?: string;
+  fechaNacimiento: string;
+  fechaVacunacion: string;
+  numero: string;
+  peso?: string;
+  raza: string;
+  sexo: string;
+  tipo: string;
+  finca: string;
+  ultimoEvento?: string;
+}
+
+type AnimalDetailsRouteProp = RouteProp<
+  { AnimalDetails: { animal: Animal } },
+  "AnimalDetails"
+>;
+
+interface AnimalDetailsProps {
+  route: AnimalDetailsRouteProp;
+}
+
+const AnimalDetails: React.FC<AnimalDetailsProps> = ({ route }) => {
+  const { animal } = route.params;
+
+  return (
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Detalles del Animal</Text>
+      <View style={styles.detailsContainer}>
+        <Text style={styles.detailItem}>Número: {animal.numero}</Text>
+        <Text style={styles.detailItem}>Tipo: {animal.tipo}</Text>
+        <Text style={styles.detailItem}>
+          Fecha de Nacimiento: {animal.fechaNacimiento}
+        </Text>
+        <Text style={styles.detailItem}>Sexo: {animal.sexo}</Text>
+        <Text style={styles.detailItem}></Text>
+        <Text style={styles.detailItem}>Raza: {animal.raza}</Text>
+        <Text style={styles.detailItem}>
+          Fecha Vacunación: {animal.fechaVacunacion}
+        </Text>
+        <Text style={styles.detailItem}>Peso: {animal.peso || "N/A"}</Text>
+        <Text style={styles.detailItem}>Edad: {animal.edad} años</Text>
+        <Text style={styles.detailItem}></Text>
+        <Text style={styles.detailItem}>Finca: {animal.finca}</Text>
+        <Text style={styles.detailItem}>
+          Fecha de Compra: {animal.fechaCompra || "N/A"}
+        </Text>
+        <Text style={styles.detailItem}>
+          Último Evento: {animal.ultimoEvento || "N/A"}
+        </Text>
+      </View>
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  detailsContainer: {
+    backgroundColor: "#f0f0f0",
+    padding: 15,
+    borderRadius: 10,
+  },
+  detailItem: {
+    fontSize: 16,
+    marginBottom: 10,
+  },
+});
+
+export default AnimalDetails;
+
+
+==================== C:/Users/ferne/Work/projecto-ganaderia/app-stat-ganaderas/app\components\AnimalList.tsx ====================
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  FlatList,
+  StyleSheet,
+  Text,
+  ActivityIndicator,
+} from "react-native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import AnimalCard from "./AnimalCard";
+import { Animal } from "../types";
+import { ref, onValue } from "firebase/database";
+import { database } from "../firebase";
+
+type RootStackParamList = {
+  AnimalList: undefined;
+  AnimalDetails: { animal: Animal };
+};
+
+type AnimalListNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "AnimalList"
+>;
+
+interface AnimalListProps {
+  navigation: AnimalListNavigationProp;
+}
+
+const AnimalList: React.FC<AnimalListProps> = ({ navigation }) => {
+  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Función para cargar datos desde Firebase
+  useEffect(() => {
+    const animalRef = ref(database, "animales"); // Referencia al nodo `animales` en Firebase
+    const unsubscribe = onValue(animalRef, (snapshot) => {
+      const animalList: Animal[] = [];
+      snapshot.forEach((childSnapshot) => {
+        const animalData = childSnapshot.val();
+        animalList.push({
+          id: childSnapshot.key, // ID único generado por Firebase
+          ...animalData,
+        });
+      });
+      setAnimals(animalList);
+      setLoading(false);
+    });
+
+    // Cleanup al desmontar el componente
+    return () => unsubscribe();
+  }, []);
+
+  const handleAnimalPress = (animal: Animal) => {
+    navigation.navigate("AnimalDetails", { animal });
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Cargando animales...</Text>
+      </View>
+    );
+  }
+
+  if (animals.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.noDataText}>No hay animales registrados.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={animals}
+        renderItem={({ item }) => (
+          <AnimalCard animal={item} onPress={handleAnimalPress} />
+        )}
+        keyExtractor={(item) => item.numero}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 10,
+    textAlign: "center",
+    fontSize: 16,
+    color: "#555",
+  },
+  noDataText: {
+    textAlign: "center",
+    fontSize: 18,
+    color: "#777",
+  },
+});
+
+export default AnimalList;
+
+
+==================== C:/Users/ferne/Work/projecto-ganaderia/app-stat-ganaderas/app\components\EmployeeInterface.tsx ====================
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Alert,
+  Platform,
+} from "react-native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { ref, update, get, push } from "firebase/database";
+import { database } from "../firebase"; // Importa tu configuración de Firebase
+
+type RootStackParamList = {
+  EmployeeInterface: undefined;
+  AnimalList: undefined;
+};
+
+type EmployeeInterfaceNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "EmployeeInterface"
+>;
+
+interface EmployeeInterfaceProps {
+  navigation: EmployeeInterfaceNavigationProp;
+}
+
+const EmployeeInterface: React.FC<EmployeeInterfaceProps> = ({
+  navigation,
+}) => {
+  const [animalId, setAnimalId] = useState("");
+  const [weight, setWeight] = useState("");
+  const [event, setEvent] = useState("");
+
+  const handleSubmit = async () => {
+    if (!animalId || !weight || !event) {
+      Alert.alert("Error", "Por favor completa todos los campos.");
+      return;
+    }
+
+    try {
+      // Verificar si el animal existe
+      const animalRef = ref(database, `animales/${animalId}`);
+      const snapshot = await get(animalRef);
+
+      if (!snapshot.exists()) {
+        Alert.alert("Error", "El ID del animal no existe.");
+        return;
+      }
+
+      // Actualizar el peso del animal
+      await update(animalRef, { peso: weight, ultimoEvento: event });
+
+      // Registrar el evento en el historial
+      const eventosRef = ref(database, `eventos/${animalId}`);
+      await push(eventosRef, {
+        tipoEvento: event,
+        fecha: new Date().toDateString(),
+        descripcion: `Evento registrado: ${event}`,
+      });
+
+      Alert.alert("Éxito", "Los datos fueron enviados correctamente.");
+      // Limpiar el formulario
+      setAnimalId("");
+      setWeight("");
+      setEvent("");
+    } catch (error) {
+      console.error("Error al registrar los datos:", error);
+      Alert.alert(
+        "Error",
+        "Hubo un problema al enviar los datos. Inténtalo nuevamente."
+      );
+    }
+  };
+
+  return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Text style={styles.title}>Interfaz de Empleado</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="ID del Animal"
+            value={animalId}
+            onChangeText={setAnimalId}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Peso (kg)"
+            value={weight}
+            onChangeText={setWeight}
+            keyboardType="numeric"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Evento (ej. Vacunación, Revisión)"
+            value={event}
+            onChangeText={setEvent}
+          />
+          <TouchableOpacity style={styles.button} onPress={handleSubmit}>
+            <Text style={styles.buttonText}>Enviar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.secondaryButton]}
+            onPress={() => navigation.navigate("AnimalList")}
+          >
+            <Text style={styles.buttonText}>Ver Lista de Animales</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f9f9f9",
+  },
+  scrollContent: {
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    marginBottom: 20,
+    textAlign: "center",
+    fontWeight: "bold",
+    color: "#333",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 10,
+    fontSize: 16,
+    borderRadius: 6,
+    backgroundColor: "#fff",
+    marginBottom: 15,
+  },
+  button: {
+    backgroundColor: "#007AFF",
+    padding: 15,
+    borderRadius: 5,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  secondaryButton: {
+    backgroundColor: "#4CAF50",
+  },
+  buttonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+});
+
+export default EmployeeInterface;
+
+
+==================== C:/Users/ferne/Work/projecto-ganaderia/app-stat-ganaderas/app\components\LoginScreen.tsx ====================
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
+
+interface LoginScreenProps {
+  onLogin: (username: string, password: string) => void;
+}
+
+const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = () => {
+    // In a real app, we would implement actual authentication here
+    if (username && password) {
+      onLogin(username, password);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Gestor Ganadero App</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Username"
+        value={username}
+        onChangeText={setUsername}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+      <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <Text style={styles.buttonText}>Login</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    marginBottom: 20,
+  },
+  input: {
+    width: "100%",
+    height: 40,
+    borderColor: "gray",
+    borderWidth: 1,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+  },
+  button: {
+    backgroundColor: "#007AFF",
+    padding: 10,
+    borderRadius: 5,
+  },
+  buttonText: {
+    color: "white",
+    textAlign: "center",
+  },
+});
+
+export default LoginScreen;
+
+
+==================== C:/Users/ferne/Work/projecto-ganaderia/app-stat-ganaderas/app\components\OwnerDashboard.tsx ====================
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { ref, onValue } from "firebase/database";
+import { database } from "../firebase"; // Asegúrate de importar correctamente tu configuración de Firebase.
+
+type RootStackParamList = {
+  OwnerDashboard: undefined;
+  AnimalList: undefined;
+  AddAnimal: undefined;
+  Reports: undefined;
+};
+
+type OwnerDashboardNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "OwnerDashboard"
+>;
+
+interface OwnerDashboardProps {
+  navigation: OwnerDashboardNavigationProp;
+}
+
+// Componente principal
+const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ navigation }) => {
+  const [stats, setStats] = useState<{
+    totalAnimals: number;
+    pendingVaccines: number;
+  }>({
+    totalAnimals: 0,
+    pendingVaccines: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Cargar estadísticas desde Firebase
+  useEffect(() => {
+    const statsRef = ref(database, "stats"); // Referencia al nodo `stats`
+    const unsubscribe = onValue(statsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setStats({
+          totalAnimals: data.totalAnimals || 0,
+          pendingVaccines: data.pendingVaccines || 0,
+        });
+      }
+      setLoading(false);
+    });
+
+    // Cleanup al desmontar
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Cargando estadísticas...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Panel de Control del Propietario</Text>
+      <View style={styles.statsContainer}>
+        <View style={styles.statBox}>
+          <Text style={styles.statNumber}>{stats.totalAnimals}</Text>
+          <Text style={styles.statLabel}>Total de Ganado</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={styles.statNumber}>{stats.pendingVaccines}</Text>
+          <Text style={styles.statLabel}>Vacunaciones Pendientes</Text>
+        </View>
+      </View>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate("AnimalList")}
+      >
+        <Text style={styles.buttonText}>Ver Todos los Animales</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate("AddAnimal")}
+      >
+        <Text style={styles.buttonText}>Agregar Nuevo Animal</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate("Reports")}
+      >
+        <Text style={styles.buttonText}>Generar Informes</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+};
+
+// Estilos
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  statBox: {
+    backgroundColor: "#f0f0f0",
+    padding: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    width: "48%",
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  statLabel: {
+    fontSize: 14,
+    color: "#666",
+  },
+  button: {
+    backgroundColor: "#007AFF",
+    padding: 15,
+    borderRadius: 5,
+    marginBottom: 10,
+  },
+  buttonText: {
+    color: "white",
+    textAlign: "center",
+    fontSize: 16,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    textAlign: "center",
+  },
+});
+
+export default OwnerDashboard;
+

@@ -1,0 +1,58 @@
+{
+  "animales": {
+    "001": {
+      "numero": "001",
+      "tipo": "Toro",
+      "fechaNacimiento": "2015-08-07",
+      "sexo": "Macho",
+      "raza": "Braham",
+      "fechaVacunacion": "2024-12-30",
+      "peso": "500 kg",
+      "finca": "Villa Mary",
+      "fechaCompra": "2016-03-12",
+      "ultimoEvento": "Vacunación",
+      "edad": 9,
+      "estado": "Vivo"
+    },
+    "002": {
+      "numero": "002",
+      "tipo": "Vaca",
+      "fechaNacimiento": "2017-06-10",
+      "sexo": "Hembra",
+      "raza": "Cebú",
+      "fechaVacunacion": "2024-12-01",
+      "peso": "450 kg",
+      "finca": "Villa Rosa",
+      "fechaCompra": "2018-05-20",
+      "ultimoEvento": "Revisión",
+      "edad": 7,
+      "estado": "Vivo"
+    }
+  },
+  "stats": {
+    "totalAnimals": 2,
+    "pendingVaccines": 1,
+    "deads": 0
+  },
+  "eventos": {
+    "001": [
+      {
+        "tipoEvento": "Vacunación",
+        "fecha": "2024-01-15",
+        "descripcion": "Primera vacunación anual"
+      },
+      {
+        "tipoEvento": "Revisión",
+        "fecha": "2023-12-01",
+        "descripcion": "Control de peso"
+      }
+    ],
+    "002": [
+      {
+        "tipoEvento": "Revisión",
+        "fecha": "2024-01-10",
+        "descripcion": "Control dental"
+      }
+    ]
+  }
+}
